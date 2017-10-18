@@ -1,30 +1,63 @@
 extends layout
 
 block content
-  h1 Bottrex
+    h1 Bottrex
 
-  table
-      thead
-        tr
-          th Market
-          th Id
-          th Quantity
-          th Price
-          th Stop Loss
-          th Take Profit
-          th Last Ticker
-          th Open Order
-          th Error Order
+    form(method='get', action='/')
+        button(type='submit') Refresh
 
-      tbody
-        for pos in arr
-          tr
-            td #{pos.market}
-            td #{pos.id}
-            td #{pos.quantity}
-            td #{pos.buy_price}
-            td #{pos.stop_loss}
-            td #{pos.take_profit}
-            td #{pos.lastTicker}
-            td #{pos.open_order}
-            td #{pos.error_order}
+    form(method='get', action='/newPosition')
+        label Market
+        input(type='text' placeholder='BTC-ETH', name='market') 
+        label Quantity
+        input(type='number' name='quantity') 
+        label Buy Price
+        input(type='number' name='buy_price' step=0.000001) 
+        button(type='submit') Add position
+
+    br
+
+    form(method='get', action='/editPosition')
+        label Market
+        input(type='text' placeholder='BTC-ETH', name='market') 
+        label Id
+        input(type='text' placeholder='id', name='id') 
+        label New Stop Loss
+        input(type='number' name='stop_loss' step=0.000001) 
+        label New Take Profit
+        input(type='number' name='take_profit' step=0.000001) 
+        button(type='submit') Edit position
+
+    br
+
+    table
+        thead
+            tr
+                th Market
+                th Id
+                th Quantity
+                th Price
+                th Stop Loss
+                th Take Profit
+                th Last Ticker
+                th Open Order
+                th Error Order
+                th Delete Position
+
+        tbody
+            for pos in arr
+                tr
+                    td #{pos.market}
+                    td #{pos.id}
+                    td #{pos.quantity}
+                    td #{pos.buy_price}
+                    td #{pos.stop_loss}
+                    td #{pos.take_profit}
+                    td #{pos.lastTicker}
+                    td #{pos.open_order}
+                    td #{pos.error_order}
+                    td 
+                        form(method='get' action='/deletePosition')
+                            input(type='hidden', name='market' value=pos.market)
+                            input(type='hidden', name='id' value=pos.id)
+                            button(type='submit') Delete

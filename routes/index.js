@@ -15,6 +15,30 @@ router.get('/', function(req, res, next) {
 	res.render('index', { arr: arr });
 });
 
+router.get('/newPosition', function(req, res, next) {
+
+	addNewPosition(req.query.market, req.query.quantity, req.query.buy_price);
+
+	var arr = marketsToArray();
+	res.render('index', { arr: arr });
+});
+
+router.get('/editPosition', function(req, res, next) {
+
+	editPosition(req.query.market, req.query.id, req.query.stop_loss, req.query.take_profit);
+
+	var arr = marketsToArray();
+	res.render('index', { arr: arr });
+});
+
+router.get('/deletePosition', function(req, res, next) {
+
+	deletePosition(req.query.market, req.query.id);
+
+	var arr = marketsToArray();
+	res.render('index', { arr: arr });
+});
+
 var markets = {};
 
 Position = function(market, quantity, buy_price) {
@@ -62,16 +86,16 @@ scan = function() {
 
 					if(pos.open_order==false && pos.error_order==false) {
 						if(price >= pos.take_profit) {
-						//Take Profit
-						takeProfit(pos);
-					}
-					else if(price <= pos.stop_loss) {
-						//Stop Loss
-						stopLoss(pos);
+							//Take Profit
+							takeProfit(pos);
+						}
+						else if(price <= pos.stop_loss) {
+							//Stop Loss
+							stopLoss(pos);
+						}
 					}
 				}
-			}
-		});
+			});
 		}
 	}
 }
@@ -93,7 +117,7 @@ addNewPosition = function(market, quantity, buy_price) {
 	markets[market].push(pos);
 }
 
-closePosition = function(market, id) {
+deletePosition = function(market, id) {
 	markets[market] = markets[market].filter(function(pos) {
 		return pos.id != id;
 	});
