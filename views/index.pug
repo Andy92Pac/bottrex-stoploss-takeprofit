@@ -1,5 +1,30 @@
 extends layout
 
 block content
-  h1= title
-  p Welcome to #{title}
+  h1 Bottrex
+
+  table
+      thead
+        tr
+          th Market
+          th Id
+          th Quantity
+          th Price
+          th Stop Loss
+          th Take Profit
+          th Last Ticker
+          th Open Order
+          th Error Order
+
+      tbody
+        for pos in arr
+          tr
+            td #{pos.market}
+            td #{pos.id}
+            td #{pos.quantity}
+            td #{pos.buy_price}
+            td #{pos.stop_loss}
+            td #{pos.take_profit}
+            td #{pos.lastTicker}
+            td #{pos.open_order}
+            td #{pos.error_order}

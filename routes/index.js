@@ -1,6 +1,7 @@
 var express = require('express');
 var router = express.Router();
 var shortid = require('shortid');
+var path = require("path");
 var fs = require('fs');
 var bittrex = require('node-bittrex-api');
 bittrex.options({
@@ -10,20 +11,42 @@ bittrex.options({
 
 /* GET home page. */
 router.get('/', function(req, res, next) {
-	res.render('index', { title: 'Express' });
+	var arr = marketsToArray();
+	res.render('index', { arr: arr });
 });
 
-Position = function(market, buy_price) {
+var markets = {};
+
+Position = function(market, quantity, buy_price) {
 	this.id = shortid.generate();
 	this.market = market;
-	this.buy = buy_price;
+	this.quantity = quantity;
+	this.buy_price = buy_price;
 	this.stop_loss = buy_price * 0.95;
 	this.take_profit = buy_price * 1.10;
+	this.lastTicker = 0;
+	this.open_order = false;
+	this.error_order = false;
 }
 
-var markets = [];
-var positionArr = [];
-var tickerArr = [];
+editPosition = function(market, id, new_stop_loss, new_take_profit) {
+	var pos;
+
+	for(var i=0; i<markets[market].length; i++) {
+		if(markets[market][i].id == id) {
+			pos = markets[market][i];
+			break;
+		}
+	}
+
+	if(new_stop_loss) {
+		pos.stop_loss = new_stop_loss;
+	} 
+
+	if(new_take_profit) {
+		pos.take_profit = new_take_profit;
+	}
+}
 
 scan = function() {
 	for(var market in markets) {
@@ -35,54 +58,127 @@ scan = function() {
 				for(var i=0; i<posArr.length; i++) {
 					var pos = posArr[i];
 
-					if(price >= pos.take_profit) {
+					pos.lastTicker = price;
+
+					if(pos.open_order==false && pos.error_order==false) {
+						if(price >= pos.take_profit) {
 						//Take Profit
+						takeProfit(pos);
 					}
 					else if(price <= pos.stop_loss) {
 						//Stop Loss
+						stopLoss(pos);
 					}
 				}
-			});
+			}
+		});
 		}
 	}
 }
 
-addNewPosition = function(market, buy_price) {
-	var pos = new Position(market, buy_price);
 
-	if(!markets[market])
+updateTicker = function(market, callback) {
+	bittrex.getticker( { market : market }, function( data, err ) {
+		callback(data.result.Last);
+	});
+}
+
+addNewPosition = function(market, quantity, buy_price) {
+	var pos = new Position(market, quantity, buy_price);
+
+	if(markets[market] == undefined) {
 		markets[market] = [];
+	}
 
-	market[market].push(pos);
+	markets[market].push(pos);
 }
 
 closePosition = function(market, id) {
-
+	markets[market] = markets[market].filter(function(pos) {
+		return pos.id != id;
+	});
 }
 
-stopLoss = function(market, id) {
+sellPosition = function(pos, price) {
+	pos.open_order = true;
 
+	bittrex.tradesell({
+		MarketName: pos.market,
+		OrderType: 'LIMIT',
+		Quantity: pos.quantity,
+		Rate: price,
+		TimeInEffect: 'GOOD_TIL_CANCELLED',
+		ConditionType: 'NONE',
+		Target: 0,
+	}, function(data, err) {
+		if(err) {
+			pos.open_order = false;
+			pos.error_order = true;
+			console.log(err);
+			return;
+		}
+		console.log('o', data);
+	});
 }
 
-takeProfit = function(market, id) {
+stopLoss = function(pos) {
+	console.log('stop loss activated for position '+pos.id+' on '+pos.market);
 
+	sellPosition(pos, pos.stop_loss*0.98);
+}
+
+takeProfit = function(pos) {
+	console.log('take profit activated for position '+pos.id+' on '+pos.market);
+
+	sellPosition(pos, pos.take_profit*0.98);
 }
 
 loadJson = function() {
-	markets = fs.readFileSync("/positions.json");
+	var content = fs.readFileSync("positions.json", "utf8");
+	if(Object.keys(content).length === 0) {
+
+	}
+	else {
+		markets = JSON.parse(content);
+	}
 }
 
-saveJson = function() {
+saveJson = function(callback) {
 	marketsStringified = JSON.stringify(markets);
-
-	fs.writeFile("/positions.json", marketsStringified, 'utf8', function(err) {
+	fs.writeFile("positions.json", marketsStringified, 'utf8', function(err) {
 		if(err) {
 			return console.log(err);
 		}
 
-		console.log("file positions.json saved");
+		console.log("\nfile positions.json saved");
+		callback();
 	});
 }
+
+marketsToArray = function() {
+	var arr = [];
+	for(market in markets) {
+		arr = arr.concat(markets[market]);
+
+	}
+	return arr;
+}
+
+startServer = function() {
+	loadJson();
+	addNewPosition('BTC-NEO', 10, 0.00045000);
+	setInterval(scan, 1000);
+}
+
+startServer();
+
+process.on( 'SIGINT', function() {
+	saveJson(function() {
+		console.log("stopping bottrex");
+		process.exit( );
+	});
+
+});
 
 
 module.exports = router;
